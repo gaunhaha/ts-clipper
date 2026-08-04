@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webUtils } from 'electron';
 
 type Bounds = { x: number; y: number; width: number; height: number };
 type ExportOpts = {
@@ -17,6 +17,7 @@ const api = {
     ipcRenderer.invoke('dialog:saveMp4', defaultName),
   saveImage: (defaultName: string): Promise<string | null> =>
     ipcRenderer.invoke('dialog:saveImage', defaultName),
+  getPathForFile: (file: File): string => webUtils.getPathForFile(file),
   setVideoBounds: (b: Bounds | null) => ipcRenderer.invoke('video:setBounds', b),
   mpv: {
     load: (filePath: string) => ipcRenderer.invoke('mpv:load', filePath),

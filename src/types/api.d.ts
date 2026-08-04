@@ -42,6 +42,7 @@ interface Window {
     openTs: () => Promise<string | null>;
     saveMp4: (defaultName: string) => Promise<string | null>;
     saveImage: (defaultName: string) => Promise<string | null>;
+    getPathForFile: (file: File) => string;
     setVideoBounds: (b: Bounds | null) => Promise<void>;
     mpv: {
       load: (filePath: string) => Promise<boolean>;

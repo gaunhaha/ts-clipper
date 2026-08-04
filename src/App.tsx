@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type DragEvent } from 'react';
 import { FolderOpen, Download, FolderOpen as FolderIcon } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { PlayerSurface } from './components/PlayerSurface';
@@ -6,6 +6,13 @@ import { TimelineBar } from './components/TimelineBar';
 import { TransportControls } from './components/TransportControls';
 import { ExportDialog } from './components/ExportDialog';
 import { formatTime, basenameNoExt } from './lib/format';
+
+const TS_EXTENSIONS = ['.ts', '.m2ts', '.mts'];
+
+function isTsPath(filePath: string): boolean {
+  const lower = filePath.toLowerCase();
+  return TS_EXTENSIONS.some((ext) => lower.endsWith(ext));
+}
 
 export default function App() {
   const [filePath, setFilePath] = useState<string | null>(null);
@@ -24,6 +31,8 @@ export default function App() {
   const [showExport, setShowExport] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; path?: string } | null>(null);
+  const [fileDragActive, setFileDragActive] = useState(false);
+  const fileDragDepth = useRef(0);
 
   useEffect(() => {
     return window.api.mpv.onEvent((evt) => {
@@ -51,9 +60,8 @@ export default function App() {
     });
   }, []);
 
-  const openFile = useCallback(async () => {
-    const p = await window.api.openTs();
-    if (!p) return;
+  const loadTsFile = useCallback(async (p: string) => {
+    setShowExport(false);
     setError(null);
     setInSec(null);
     setOutSec(null);
@@ -68,10 +76,63 @@ export default function App() {
       await window.api.mpv.load(p);
       await window.api.mpv.setProperty('volume', volume);
       setMpvReady(true);
-    } catch (e: any) {
-      setError(String(e?.message || e));
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
+      setError(message);
     }
   }, [volume]);
+
+  const openFile = useCallback(async () => {
+    const p = await window.api.openTs();
+    if (!p) return;
+    await loadTsFile(p);
+  }, [loadTsFile]);
+
+  const resetFileDrag = useCallback(() => {
+    fileDragDepth.current = 0;
+    setFileDragActive(false);
+  }, []);
+
+  const onDragEnter = useCallback((e: DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (![...e.dataTransfer.types].includes('Files')) return;
+    fileDragDepth.current += 1;
+    setFileDragActive(true);
+  }, []);
+
+  const onDragLeave = useCallback((e: DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    fileDragDepth.current -= 1;
+    if (fileDragDepth.current <= 0) resetFileDrag();
+  }, [resetFileDrag]);
+
+  const onDragOver = useCallback((e: DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if ([...e.dataTransfer.types].includes('Files')) {
+      e.dataTransfer.dropEffect = 'copy';
+    }
+  }, []);
+
+  const onDrop = useCallback(async (e: DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resetFileDrag();
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    const p = window.api.getPathForFile(file);
+    if (!p) {
+      setError('無法取得檔案路徑');
+      return;
+    }
+    if (!isTsPath(p)) {
+      setError('請拖入 .ts / .m2ts / .mts 檔案');
+      return;
+    }
+    await loadTsFile(p);
+  }, [loadTsFile, resetFileDrag]);
 
   const changeVolume = useCallback(async (v: number) => {
     const clamped = Math.max(0, Math.min(150, v));
@@ -187,7 +248,13 @@ export default function App() {
   const selDuration = inSec !== null && outSec !== null ? Math.max(0, outSec - inSec) : 0;
 
   return (
-    <div className="h-full flex flex-col">
+    <div
+      className="h-full flex flex-col relative"
+      onDragEnter={onDragEnter}
+      onDragLeave={onDragLeave}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+    >
       <header className="flex items-center gap-3 px-4 h-12 border-b border-border bg-bg-panel">
         <div className="font-medium text-sm">TS Clipper</div>
         {filePath && (
@@ -254,6 +321,15 @@ export default function App() {
         encoders={encoders}
         onClose={() => setShowExport(false)}
       />
+
+      {fileDragActive && (
+        <div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center bg-black/55 border-2 border-dashed border-sky-400/80">
+          <div className="rounded-md bg-bg-panel/95 border border-border px-6 py-4 text-center shadow-xl">
+            <div className="text-sm text-neutral-100">放開以開啟檔案</div>
+            <div className="mt-1 text-xs text-neutral-500">支援 .ts / .m2ts / .mts</div>
+          </div>
+        </div>
+      )}
 
       {toast && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 bg-bg-panel border border-border rounded-md shadow-xl px-4 py-2.5 text-sm flex items-center gap-3 max-w-[80%]">

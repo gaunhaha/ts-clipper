@@ -183,7 +183,7 @@ export function ExportDialog({ open, inputPath, inSec, outSec, encoders, onClose
             <>
               <Button variant="ghost" onClick={onClose}>關閉</Button>
               <Button variant="primary" onClick={handleExport} disabled={duration <= 0}>
-                開始輸出
+                {result ? (result.ok ? '再次輸出' : '重試輸出') : '開始輸出'}
               </Button>
             </>
           )}

@@ -48,6 +48,8 @@ function createWindows() {
     backgroundColor: '#000000',
     webPreferences: { sandbox: true },
   });
+  // Let drag-drop and UI hit-testing reach the main window under the embed.
+  videoWindow.setIgnoreMouseEvents(true);
   videoWindow.loadURL(
     'data:text/html,<html><body style="margin:0;background:#000;"></body></html>',
   );

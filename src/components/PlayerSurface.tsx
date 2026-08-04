@@ -44,7 +44,12 @@ export function PlayerSurface({ enabled }: Props) {
       ref={ref}
       className="w-full h-full bg-black flex items-center justify-center text-neutral-500"
     >
-      {!enabled && <span className="text-sm">尚未載入影片</span>}
+      {!enabled && (
+        <div className="text-center space-y-1.5 pointer-events-none">
+          <div className="text-sm">尚未載入影片</div>
+          <div className="text-xs text-neutral-600">拖曳 .ts / .m2ts / .mts 到此處，或點上方「開啟 TS」</div>
+        </div>
+      )}
     </div>
   );
 }
